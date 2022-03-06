@@ -1,0 +1,868 @@
+---
+title: "SML-DS 5220-Homework 2"
+author: "Apoorva Gupta"
+date: "3-4-2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+```{r cars}
+#importing libraries
+#install.packages('tinytex')
+library(qrmix)
+library(geometry)
+library(autoMrP)
+library(Metrics)
+library(tidyverse)
+library(pracma)
+```
+
+Question 3(a)
+
+
+```{r}
+#creating range of e
+e=seq(from=-3,to=3,by=0.01)
+
+#storing quadratic loss values
+Qudratic_loss<- (e^2)/2
+
+#storing mean absolute loss values
+Mean_absolute_loss<- abs(e)
+
+#calling huber function with 2 delta values
+Huber_loss1<-Huber(e,1)
+Huber_loss2<-Huber(e,0.5)
+
+ggplot() + geom_point(mapping = aes(x = e, y = Qudratic_loss, color = "Blue"))+
+  geom_point(mapping = aes(x = e, y = Mean_absolute_loss, color = "Green"))+
+  geom_point(mapping = aes(x = e, y = Huber_loss1, color = "Yellow"))+
+  geom_point(mapping = aes(x = e, y = Huber_loss2, color = "Red"))+
+  labs(x = "Error(e)", y = "Loss values", title = "Error vs Loss values", color = "") +  scale_color_manual(labels = c("Quadratic Loss", "Mean Absolute Loss", "Huber Loss with delta = 1)", "Huber Loss with delta=0.5"), values = c("Blue", "Green", "Yellow", "Red"))
+  
+
+```
+Advantages of Quadratic loss functions for linear regression:
+1.For quadratic equation, we have only one global minima
+2.No local minima
+3.Penalizes linear regression model for making large errors by squaring them as we can see above in blue
+
+Disadvantages of Quadratic loss functions for linear regression:
+Outliers are not handled properly as we penalize outlier error by sqauring it
+
+Advantages of Mean absolute loss functions for linear regression:
+1.Outliers are handled better as compared to MSE because it is not penalizing the model by squaring 
+
+Disadvantages of Mean absolute loss functions for linear regression:
+1.It is computaionally expensive since ut uses absoulte function
+2.It may have local minima
+
+Advantages of Huber loss functions for linear regression:
+1.Outliers are handles properly and huber loss is less sensitive to outliers, since its a combination of MSE and MAE
+2.Local minima situation is handled here
+
+Disadvantages of Huber loss functions for linear regression:
+1.It is very complex to calculate 
+2.We need to hyper tune the parameter of sigma, hnece it increases the training requirements 
+
+
+Question 3(b)
+
+
+```{r}
+#creating gradient descent function
+gradientDesc <- function(x, y, learning_rate, converging_threshold, iterations,loss_name) 
+  {
+  #generating random slope and intercept to start with
+  slope <- 0
+  intercept <- 0
+  
+  #getting number of data points
+  N=length(x)
+  
+  #predicting value for given slope and intercept
+  y_pred <- slope * x + intercept
+  
+  
+  if(loss_name=="Mean sqaure")
+  {
+    #calculating mean squared error
+    MSE <- sum((y - y_pred) ^ 2) / N
+    
+    #let converegence be false for first step
+    converged = F
+    
+    loop = 0
+    
+    #Running the loop until it converges
+    while(converged == F) 
+      {
+            ## Using gradient descent formula, calculate new slope and intercept
+            new_slope <- slope - learning_rate * ((1 / N) * (sum((y_pred - y) * x)))
+            new_intercept <- intercept - learning_rate * ((1 / N) * (sum(y_pred - y)))
+            
+            #update slope and intercept 
+            slope <- new_slope
+            intercept <- new_intercept
+            
+            #predicting y
+            y_pred <- slope * x + intercept
+            
+            #calculating mean square error
+            MSE_new <- sum((y - y_pred) ^ 2) / N
+            
+            
+            if(abs(MSE - MSE_new) <= converging_threshold) 
+              {
+              
+              converged = T
+              
+            }
+            
+            loop = loop + 1
+            
+            if(loop > iterations) { 
+              
+              converged = T
+              
+            }
+    
+    }
+    
+    return(list("slope"=slope,"intercept"=intercept))
+  }
+  
+  if(loss_name=="Mean absolute")
+  {
+    #calculating mean absolute error
+   MAE <- sum(abs(y - y_pred))/ N
+    
+    #let converegence be false for first step
+    converged = F
+    
+    loop = 0
+    
+    #Running the loop until it converges
+    while(converged == F) 
+      {
+            ## Using gradient descent formula, calculate new slope and intercept
+            val=(ifelse(y_pred>y,-1,1))
+              new_slope<- slope-learning_rate*(sum((y - y_pred)*x))*val
+              new_intercept<-intercept-learning_rate*sum(y - y_pred)*val
+              
+            #update slope and intercept 
+            slope <- new_slope
+            intercept <- new_intercept
+            
+            #predicting y
+            y_pred <- slope * x + intercept
+            
+            #calculating mean absolute error
+            MAE_new <- sum(abs(y - y_pred)) / N
+            
+            
+            if((MAE - MAE_new) <= converging_threshold) 
+              {
+              
+              converged = T
+              
+            }
+            
+            loop = loop + 1
+            
+            if(loop > iterations) { 
+              
+              converged = T
+              
+            }
+    
+    }
+    
+    return(list("slope"=slope,"intercept"=intercept))
+  }
+  
+  
+ if(loss_name=="Huber")
+  {
+      y_pred <- slope * x + intercept
+    #calculating huber error
+     delta=5
+    err=y_pred-y
+    if(abs(err)<=delta)
+    {
+      huber <- sum(0.5*(err^2))
+    }
+    else if(abs(err)>delta)
+    {
+      huber<- sum((delta*abs(err))-(0.5*((delta)^2))) 
+    }
+    
+    
+    #let convergence be false for first step
+    converged = F
+    
+    loop = 0
+    
+    #Running the loop until it converges
+    while(converged == F) 
+      {
+            ## Using gradient descent formula, calculate new slope and intercept
+              delta=5
+              er=y_pred-y  
+              
+              if(abs(er)<=delta)
+              {
+                new_slope <- slope - learning_rate * ((1 / N) * (sum((y_pred - y) * x)))
+                new_intercept <- intercept - learning_rate * ((1 / N) * (sum(y_pred - y)))
+              }
+              
+              else if(abs(er)>delta)
+              {
+                nval=(ifelse(y_pred>y,-1,1))
+                new_slope<- slope-learning_rate*(sum((y - y_pred)*x))*nval
+                new_intercept<-intercept-learning_rate*sum(y - y_pred)*nval
+              }
+              
+              
+            
+            #update slope and intercept 
+            slope <- new_slope
+            intercept <- new_intercept
+            
+            #predicting y
+            y_pred <- slope * x + intercept
+            
+            #calculating huber loss
+           
+           n_err=y_pred-y
+            if(abs(n_err)<=delta)
+            {
+              new_huber <- sum(0.5*(n_err^2))
+            }
+            else if(abs(n_err)>delta)
+            {
+              new_huber<- sum((delta*abs(n_err))-(0.5*((delta)^2))) 
+            }
+            
+            
+            if(abs(huber - new_huber) <= converging_threshold) 
+              {
+              
+              converged = T
+              
+            }
+            
+            loop = loop + 1
+            
+            if(loop > iterations) { 
+              
+              converged = T
+              
+            }
+    
+    }
+    return(list("slope"=slope,"intercept"=intercept))
+  }
+ 
+
+  
+}
+
+
+
+```
+
+
+
+Question 3(c):
+
+
+
+```{r}
+StochasticgradientDesc <- function(x, y, learning_rate,converging_threshold,iterations,loss_name,batch_size )
+{
+   
+ 
+  if(loss_name=="Mean sqaure")
+  {
+    #calculating mean squared error
+    
+    loop = 0
+    
+    #let converegence be false for first step
+    converged = F
+    #Running the loop until it converges
+    while(converged == F) 
+      {
+      xS=sample(x,batch_size)
+      yS=sample(y,batch_size)
+      
+      #generating random slope and intercept to start with
+        slope <- 0
+        intercept <- 0
+  
+        #getting number of data points
+      N=length(xS)
+        #predicting value for given slope and intercept
+      y_pred <- slope * xS + intercept
+      MSE <- sum((yS - y_pred) ^ 2) / N
+      
+          for(i in 1:batch_size)
+          {
+            ## Using gradient descent formula, calculate new slope and intercept
+            new_slope <- slope - learning_rate * ((1 / N) * (sum((y_pred - yS[i]) * xS[i])))
+            new_intercept <- intercept - learning_rate * ((1 / N) * (sum(y_pred - yS[i])))
+            #update slope and intercept 
+            slope <- new_slope
+            intercept <- new_intercept
+            
+            #predicting y
+            y_pred <- slope * xS[i] + intercept
+            
+          }
+            #calculating mean square error
+            MSE_new <- sum((yS - y_pred) ^ 2) / N
+            
+            
+            if(abs(MSE - MSE_new) <= converging_threshold) 
+              {
+              
+              converged = T
+              
+            }
+            
+            loop = loop + 1
+            
+            if(loop > iterations) { 
+              
+              converged = T
+             
+            }
+    
+    }
+    return(list("slope"=slope,"intercept"=intercept))
+  }
+  
+  
+  if(loss_name=="Mean absolute")
+  {
+    #calculating mean absolute error
+    
+    loop = 0
+    
+    #let converegence be false for first step
+    converged = F
+    #Running the loop until it converges
+    while(converged == F) 
+      {
+      xS=sample(x,batch_size)
+      yS=sample(y,batch_size)
+      
+      #generating random slope and intercept to start with
+        slope <- 0
+        intercept <- 0
+  
+        #getting number of data points
+      N=length(xS)
+        #predicting value for given slope and intercept
+      y_pred <- slope * xS + intercept
+     MAE <- sum(abs(yS - y_pred))/ N
+      
+          for(i in 1:batch_size)
+          {
+            ## Using gradient descent formula, calculate new slope and intercept
+            val=(ifelse(y_pred>yS[i],-1,1))
+              new_slope<- slope-learning_rate*(sum((yS[i] - y_pred)*x[i]))*val
+              new_intercept<-intercept-learning_rate*sum(yS[i] - y_pred)*val
+            #update slope and intercept 
+            slope <- new_slope
+            intercept <- new_intercept
+            
+            #predicting y
+            y_pred <- slope * xS[i] + intercept
+            
+          }
+            #calculating mean absolute error
+            MAE_new <- sum(abs(yS - y_pred)) / N
+            
+            
+            if(abs(MAE - MAE_new) <= converging_threshold) 
+              {
+              
+              converged = T
+             
+            }
+            
+            loop = loop + 1
+            
+            if(loop > iterations) { 
+             
+              converged = T
+              
+            }
+    
+    }
+    return(list("slope"=slope,"intercept"=intercept))
+  }
+  
+  
+  if(loss_name=="Huber")
+  {
+    #calculating huber error
+    
+    loop = 0
+    
+    #let converegence be false for first step
+    converged = F
+    #Running the loop until it converges
+    while(converged == F) 
+      {
+      xS=sample(x,batch_size)
+      yS=sample(y,batch_size)
+      
+      #generating random slope and intercept to start with
+        slope <- 0
+        intercept <- 0
+  
+        #getting number of data points
+      N=length(xS)
+        #predicting value for given slope and intercept
+      y_pred <- slope * xS + intercept
+     
+      delta=5
+    err=y_pred-yS
+    if(abs(err)<=delta)
+    {
+      huber <- sum(0.5*(err^2))
+    }
+    else if(abs(err)>delta)
+    {
+      huber<- sum((delta*abs(err))-(0.5*((delta)^2))) 
+    }
+      
+          for(i in 1:batch_size)
+          {
+            ## Using gradient descent formula, calculate new slope and intercept
+            delta=5
+              er=y_pred-yS[i]  
+              
+              if(abs(er)<=delta)
+              {
+                new_slope <- slope - learning_rate * ((1 / N) * (sum((y_pred - yS[i]) * xS[i])))
+                new_intercept <- intercept - learning_rate * ((1 / N) * (sum(y_pred - yS[i])))
+              }
+              
+              else if(abs(er)>delta)
+              {
+                nval=(ifelse(y_pred>yS[i],1,-1))
+                new_slope<- slope-learning_rate*(sum((yS[i] - y_pred)*xS[i]))*nval
+                new_intercept<-intercept-learning_rate*sum(y[i] - y_pred)*nval
+              }
+              #update slope and intercept 
+            slope <- new_slope
+            intercept <- new_intercept
+            
+            #predicting y
+            y_pred <- slope * xS[i] + intercept
+            
+          }
+            #calculating huber
+            n_err=y_pred-yS
+            if(abs(n_err)<=delta)
+            {
+              new_huber <- sum(0.5*(n_err^2))
+            }
+            else if(abs(n_err)>delta)
+            {
+              new_huber<- sum((delta*abs(n_err))-(0.5*((delta)^2))) 
+            }
+            
+            
+            if(abs(huber - new_huber) <= converging_threshold) 
+              {
+             
+              converged = T
+              
+            }
+            
+            loop = loop + 1
+            
+            if(loop > iterations) { 
+              
+              converged = T
+              
+            }
+    
+      }
+  
+    return(list("slope"=slope,"intercept"=intercept))
+    }
+  
+  }
+
+
+```
+
+
+
+
+Question 4 (a)-(i) Analytical solution
+
+
+
+```{r}
+
+#creating analytical function
+analytical<-function(x,y)
+{
+    xmatrix<-as.matrix(X)
+    one<- seq(1, 1, length.out=50)
+    one_mat<-as.matrix(one)
+    x_final<-cbind(one_mat,xmatrix)
+    x_trans=t(x_final)
+    x_dot=x_trans%*%x_final
+    theta=inv(x_dot)%*%x_trans%*%y
+    slope=theta[1][1]
+    intercept=theta[2][1]
+    return(list(slope,intercept))
+}
+
+#getting x and y values
+X =  seq(-2, 2, length.out=50)
+y = 3 + 2*X +rnorm(50,mean=0,sd=4)
+
+#plotting graph and line fit
+value<-analytical(X,y)
+slope<-as.numeric(value[1][1])
+intercept<-as.numeric(value[2][1])
+plot(X, y, col = "blue", pch = 20)
+abline(slope[1], intercept[1]) 
+```
+
+
+Question 4 (a)-(ii) Batch gradient descent
+
+
+```{r}
+
+#getting x and y values
+X =  seq(-2, 2, length.out=50)
+y = 3 + 2*X +rnorm(50,mean=0,sd=4)
+value = gradientDesc(X, y, 0.01,0.00000000001, 100000,"Mean sqaure")
+
+#plot the graph and fir line
+slope=as.numeric(value["slope"])
+intercept=as.numeric(value["intercept"])
+
+plot(X, y, col = "blue", pch = 20)
+abline(slope, intercept)
+
+```
+
+
+Question 4 (a)-(iii) Stochastic gradient descent
+
+
+```{r}
+
+#getting x and y values
+X =  seq(-2, 2, length.out=50)
+y = 3 + 2*X +rnorm(50,mean=0,sd=4)
+amse = StochasticgradientDesc(X, y, 0.65,0.00000000001, 100000,"Mean sqaure",40)
+
+#plotting graph and fit line
+slope=as.numeric(amse["slope"])
+intercept=as.numeric(amse["intercept"])
+
+plot(X, y, col = "blue", pch = 20)
+abline(slope, intercept)
+```
+
+
+Question 4 (b)
+
+
+```{r}
+#creating empty lists for slopes
+slopes_analytical=c()
+slopes_batch=c()
+slopes_stochastic=c()
+
+#running function 1000 times 
+for (i in 1:1000){
+  X =  seq(-2, 2, length.out=50)
+  y = 3 + 2*X +rnorm(50,mean=0,sd=4)
+  slopes_analytical=append(slopes_analytical,(analytical(X, y)[[1]]))
+  slopes_batch=append(slopes_batch,gradientDesc(X, y, 0.01,0.00000000001, 100,"Mean sqaure")[[1]])
+  slopes_stochastic=append(slopes_stochastic,StochasticgradientDesc(X, y, 0.065,0.0000001, 100,"Mean sqaure",20)[[1]])
+
+}
+
+#plotting histograms
+hist(slopes_analytical,col=rgb(1,0.5,0.5,0.5),breaks=50)
+hist(slopes_batch,col=rgb(0,0,1,1),add=T,breaks=50)
+hist(slopes_stochastic,col=rgb(0.5,0.5,0.5,0.5),add=T,breaks=50)
+legend("topright",
+  legend=c("Analytical","Batch", "Stochastic"),
+  lty=c("solid", "solid", "solid"))
+box()
+
+#We know that the true value of the line is 2. From the above graph we can see that Analytically method has the mean of approximately 2, which is more close to the true value as compared to the batch gradient and stochastic gradient methods. SO, we can say that Analytically method is better way to choose slope of parameters.
+
+```
+
+
+
+Question 4(c)-(i)-Analytically solution
+
+
+```{r}
+#creating analytically method to get the slope and intercept 
+X =  seq(-2, 2, length.out=50)
+one<- seq(1, 1, length.out=50)
+y = 3 + 2*X +rnorm(50,mean=0,sd=4)
+xmatrix<-as.matrix(X)
+one_mat<-as.matrix(one)
+x_final<-cbind(one_mat,xmatrix)
+x_trans=t(x_final)
+x_dot=x_trans%*%x_final
+theta=inv(x_dot)%*%x_trans%*%y
+slope=theta[1][1]
+intercept=theta[2][1]
+
+plot(X, y, col = "blue", pch = 20)
+abline(slope, intercept)
+
+```
+
+
+Question 4(c)-(ii) Batch Gradient descent
+
+
+```{r}
+
+#calling function for given x and y
+X =  seq(-2, 2, length.out=50)
+y = 3 + 2*X +rnorm(50,mean=0,sd=4)
+zz = gradientDesc(X, y, 0.005,0.00001, 100000,"Mean absolute")
+
+#plotting graph and fit line 
+slope=as.numeric(zz$slope[1])
+intercept=as.numeric(zz$intercept[1])
+
+plot(X, y, col = "blue", pch = 20)
+abline(slope, intercept)
+
+```
+
+
+Question 4(c)-(iii)-  Gradient descent
+
+
+```{r}
+#calling function for given x and y
+X =  seq(-2, 2, length.out=50)
+y = 3 + 2*X +rnorm(50,mean=0,sd=4)
+amse = StochasticgradientDesc(X, y, 0.05,0.001, 100,"Huber",40)
+
+#plotting graph and fit line
+slope=as.numeric(amse$slope[1])
+intercept=as.numeric(amse$intercept[1])
+
+plot(X, y, col = "blue", pch = 20)
+abline(slope, intercept)
+```
+
+
+Question 4(d)
+
+
+```{r}
+#creating empty lists for slopes
+slopes_analytical=c()
+slopes_batch=c()
+slopes_huber=c()
+
+#running function 1000 times 
+for (i in 1:1000){
+  X =  seq(-2, 2, length.out=50)
+  y = 3 + 2*X +rnorm(50,mean=0,sd=4)
+  slopes_analytical=append(slopes_analytical,(analytical(X, y)[[1]]))
+  slopes_batch=append(slopes_batch,gradientDesc(X, y, 0.01,0.00000000001, 100,"Mean absolute")[[1]])
+  slopes_huber=append(slopes_huber,StochasticgradientDesc(X, y, 0.05,0.001, 10,"Huber",40)[[1]])
+
+}
+
+#plotting histograms
+hist(slopes_analytical,col=rgb(1,0.5,0.5,0.5),breaks=50)
+hist(slopes_batch,col=rgb(0,0,1,1),add=T,breaks=50)
+hist(slopes_huber,col=rgb(0.5,0.5,0.5,0.5),add=T,breaks=50)
+legend("topright",
+  legend=c("Analytical","Mean absolute", "Huber"),
+  lty=c("solid", "solid", "solid"))
+box()
+
+#We know that the true value of the line is 2. From the above graph we can see that Analytically method has the mean of approximately 2, which is more close to the true value as compared to the batch gradient for mean absolute and stochastic gradient for huber methods. SO, we can say that Analytically method is better way to choose slope of parameters.
+
+```
+
+
+
+Question 4(e) - (i) Analytical solution
+
+
+```{r}
+#getting x and y value
+X =  seq(-2, 2, length.out=50)
+y = 3 + 2*X +rnorm(50,mean=0,sd=4)
+
+#taking data randomly with probability of 0.1
+new_y=sample(y,5,replace=FALSE,prob=NULL)
+
+#increasing value by 200% with probability of 0.5 
+new_y_inc<- sample(new_y,2,replace=FALSE,prob=NULL)
+new_y_inc<-new_y_inc*3
+
+#decreasing value by 200% with probability of 0.5 
+new_y_dec<- sample(new_y,3,replace=FALSE,prob=NULL)
+new_y_dec<-new_y_dec*(-3)
+final_y<-append(new_y_inc,new_y_dec)
+
+#creating final value of y
+Yn<-setdiff(y,final_y) 
+
+
+#Analytically solution
+one<- seq(1, 1, length.out=50)
+
+xmatrix<-as.matrix(X)
+one_mat<-as.matrix(one)
+x_final<-cbind(one_mat,xmatrix)
+x_trans=t(x_final)
+x_dot=x_trans%*%x_final
+theta=inv(x_dot)%*%x_trans%*%Yn
+slope=theta[1][1]
+intercept=theta[2][1]
+
+plot(X, Yn, col = "blue", pch = 20)
+abline(slope, intercept)
+
+```
+
+
+Question 4(e)-(ii)
+
+
+```{r}
+#getting x and y value
+X =  seq(-2, 2, length.out=50)
+y = 3 + 2*X +rnorm(50,mean=0,sd=4)
+
+#taking data randomly with probability of 0.1
+new_y=sample(y,5,replace=FALSE,prob=NULL)
+
+#increasing value by 200% with probability of 0.5 
+new_y_inc<- sample(new_y,2,replace=FALSE,prob=NULL)
+new_y_inc<-new_y_inc*3
+
+#decreasing value by 200% with probability of 0.5 
+new_y_dec<- sample(new_y,3,replace=FALSE,prob=NULL)
+new_y_dec<-new_y_dec*(-3)
+final_y<-append(new_y_inc,new_y_dec)
+
+#creating final value of y
+Yn<-setdiff(y,final_y) 
+
+
+value = gradientDesc(X, y, 0.01,0.000000001, 10,"Mean absolute")
+slope=as.numeric(value$slope[1])
+intercept=as.numeric(value$intercept[1])
+plot(X, Yn, col = "blue", pch = 20)
+abline(slope,intercept)
+
+```
+
+
+Question 4(e)-(iii)
+
+
+```{r}
+#getting x and y value
+X =  seq(-2, 2, length.out=50)
+y = 3 + 2*X +rnorm(50,mean=0,sd=4)
+
+#taking data randomly with probability of 0.1
+new_y=sample(y,5,replace=FALSE,prob=NULL)
+
+#increasing value by 200% with probability of 0.5 
+new_y_inc<- sample(new_y,2,replace=FALSE,prob=NULL)
+new_y_inc<-new_y_inc*3
+
+#decreasing value by 200% with probability of 0.5 
+new_y_dec<- sample(new_y,3,replace=FALSE,prob=NULL)
+new_y_dec<-new_y_dec*(-3)
+final_y<-append(new_y_inc,new_y_dec)
+
+#creating final value of y
+Yn<-setdiff(y,final_y) 
+
+
+value = gradientDesc(X, y, 0.05,0.001, 100,"Huber")
+slope=as.numeric(value$slope[1])
+intercept=as.numeric(value$intercept[1])
+plot(X, Yn, col = "blue", pch = 20)
+abline(slope,intercept)
+
+```
+
+
+Question 4(f)
+
+
+```{r}
+#creating empty lists for slopes
+slopes_analytical=c()
+slopes_batch=c()
+slopes_huber=c()
+
+#running function 1000 times 
+for (i in 1:1000){
+  #getting x and y value
+  X =  seq(-2, 2, length.out=50)
+  y = 3 + 2*X +rnorm(50,mean=0,sd=4)
+  
+  #taking data randomly with probability of 0.1
+  new_y=sample(y,5,replace=FALSE,prob=NULL)
+  
+  #increasing value by 200% with probability of 0.5 
+  new_y_inc<- sample(new_y,2,replace=FALSE,prob=NULL)
+  new_y_inc<-new_y_inc*3
+  
+  #decreasing value by 200% with probability of 0.5 
+  new_y_dec<- sample(new_y,3,replace=FALSE,prob=NULL)
+  new_y_dec<-new_y_dec*(-3)
+  final_y<-append(new_y_inc,new_y_dec)
+  
+  #creating final value of y
+  Yn<-setdiff(y,final_y) 
+  slopes_analytical=append(slopes_analytical,(analytical(X, Yn)[[1]]))
+  slopes_batch=append(slopes_batch,gradientDesc(X, Yn, 0.01,0.00000000001, 100,"Mean absolute")[[1]])
+  slopes_huber=append(slopes_huber,gradientDesc(X, Yn, 0.05,0.001, 100,"Huber")[[1]])
+
+}
+
+#plotting histograms
+hist(slopes_analytical,col=rgb(1,0.5,0.5,0.5),breaks=50)
+hist(slopes_batch,col=rgb(0,0,1,1),add=T,breaks=50)
+hist(slopes_huber,col=rgb(0.5,0.5,0.5,0.5),add=T,breaks=50)
+legend("topright",
+  legend=c("Analytical","Mean absolute", "Huber"),
+  lty=c("solid", "solid", "solid"))
+box()
+
+#We know that the true value of the line is 2. From the above graph we can see that Analytically method has the mean of approximately 2, which is more close to the true value as compared to the batch gradient and stochastic gradient methods. SO, we can say that Analytically method is better way to choose slope of parameters
+```
+
